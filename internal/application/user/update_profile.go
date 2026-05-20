@@ -6,17 +6,16 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 
 	domain "github.com/companyofcreators/user-service/internal/domain/user"
+	"github.com/companyofcreators/user-service/pkg"
 )
 
 // UpdateProfileUseCase handles updating a user's profile fields.
 type UpdateProfileUseCase struct {
-	userRepo  domain.UserProfileRepository
-	validator *validator.Validate
-	logger    *slog.Logger
+	userRepo domain.UserProfileRepository
+	logger   *slog.Logger
 }
 
 func NewUpdateProfileUseCase(
@@ -24,19 +23,17 @@ func NewUpdateProfileUseCase(
 	logger *slog.Logger,
 ) *UpdateProfileUseCase {
 	return &UpdateProfileUseCase{
-		userRepo:  userRepo,
-		validator: validator.New(),
-		logger:    logger,
+		userRepo: userRepo,
+		logger:   logger,
 	}
 }
 
 func (u *UpdateProfileUseCase) Execute(ctx context.Context, userID uuid.UUID, input domain.UpdateProfileInput) (*domain.UserProfile, error) {
-	if err := u.validator.Struct(input); err != nil {
+	if verrs := pkg.ValidateStruct(input); verrs != nil {
 		u.logger.WarnContext(ctx, "validation failed for profile update",
 			slog.String("user_id", userID.String()),
-			slog.String("error", err.Error()),
 		)
-		return nil, fmt.Errorf("invalid input: %w", err)
+		return nil, fmt.Errorf("некорректные данные")
 	}
 
 	// Fetch existing profile
@@ -50,7 +47,7 @@ func (u *UpdateProfileUseCase) Execute(ctx context.Context, userID uuid.UUID, in
 	}
 
 	if existing == nil {
-		return nil, fmt.Errorf("user profile not found")
+		return nil, fmt.Errorf("пользователь не найден")
 	}
 
 	// Apply updates only for non-nil fields

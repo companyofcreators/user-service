@@ -40,7 +40,7 @@ func (u *GetProfileUseCase) Execute(ctx context.Context, userID uuid.UUID) (*dom
 	}
 
 	if profile == nil {
-		return nil, fmt.Errorf("user profile not found")
+		return nil, fmt.Errorf("пользователь не найден")
 	}
 
 	roles, err := u.roleRepo.GetRoles(ctx, userID)

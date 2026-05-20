@@ -6,16 +6,15 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 
 	domain "github.com/companyofcreators/user-service/internal/domain/user"
+	"github.com/companyofcreators/user-service/pkg"
 )
 
 // UpdateMasterProfileUseCase handles updating a master's profile fields.
 type UpdateMasterProfileUseCase struct {
 	masterRepo domain.MasterProfileRepository
-	validator  *validator.Validate
 	logger     *slog.Logger
 }
 
@@ -25,18 +24,16 @@ func NewUpdateMasterProfileUseCase(
 ) *UpdateMasterProfileUseCase {
 	return &UpdateMasterProfileUseCase{
 		masterRepo: masterRepo,
-		validator:  validator.New(),
 		logger:     logger,
 	}
 }
 
 func (u *UpdateMasterProfileUseCase) Execute(ctx context.Context, userID uuid.UUID, input domain.UpdateMasterProfileInput) (*domain.MasterProfile, error) {
-	if err := u.validator.Struct(input); err != nil {
+	if verrs := pkg.ValidateStruct(input); verrs != nil {
 		u.logger.WarnContext(ctx, "validation failed for master profile update",
 			slog.String("user_id", userID.String()),
-			slog.String("error", err.Error()),
 		)
-		return nil, fmt.Errorf("invalid input: %w", err)
+		return nil, fmt.Errorf("некорректные данные")
 	}
 
 	existing, err := u.masterRepo.FindByUserID(ctx, userID)

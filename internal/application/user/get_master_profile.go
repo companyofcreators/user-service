@@ -37,7 +37,7 @@ func (u *GetMasterProfileUseCase) Execute(ctx context.Context, userID uuid.UUID)
 	}
 
 	if profile == nil {
-		return nil, fmt.Errorf("master profile not found")
+		return nil, fmt.Errorf("профиль мастера не найден")
 	}
 
 	return profile, nil

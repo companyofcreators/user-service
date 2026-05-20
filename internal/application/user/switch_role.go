@@ -53,7 +53,7 @@ func (u *SwitchRoleUseCase) EnableMasterRole(ctx context.Context, userID uuid.UU
 				slog.String("error", err.Error()),
 			)
 		} else if hasActive {
-			return nil, fmt.Errorf("cannot enable master while you have active orders as customer")
+			return nil, fmt.Errorf("нельзя включить роль мастера при наличии активных заказов как заказчик")
 		}
 	}
 
@@ -67,7 +67,7 @@ func (u *SwitchRoleUseCase) EnableMasterRole(ctx context.Context, userID uuid.UU
 		return nil, fmt.Errorf("failed to find user profile: %w", err)
 	}
 	if userProfile == nil {
-		return nil, fmt.Errorf("user profile not found")
+		return nil, fmt.Errorf("пользователь не найден")
 	}
 
 	// Add master role (idempotent - may already exist)
@@ -134,7 +134,7 @@ func (u *SwitchRoleUseCase) DisableMasterRole(ctx context.Context, userID uuid.U
 				slog.String("error", err.Error()),
 			)
 		} else if hasActive {
-			return fmt.Errorf("cannot disable master while you have active orders in progress")
+			return fmt.Errorf("нельзя отключить роль мастера при наличии активных заказов в работе")
 		}
 	}
 

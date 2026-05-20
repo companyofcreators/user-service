@@ -13,6 +13,7 @@ import (
 
 	appuser "github.com/companyofcreators/user-service/internal/application/user"
 	domain "github.com/companyofcreators/user-service/internal/domain/user"
+	"github.com/companyofcreators/user-service/pkg"
 )
 
 // UserHandler handles HTTP requests for user-related operations.
@@ -52,24 +53,24 @@ func NewUserHandler(
 func (h *UserHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 	userID, err := getUserIDFromURL(r)
 	if err != nil {
-		h.writeError(w, http.StatusBadRequest, "invalid user id", err.Error())
+		h.writeError(w, http.StatusBadRequest, "недействительный ID пользователя", err.Error())
 		return
 	}
 
 	// Authorization check: X-User-Id must match {id} or user must be admin
 	if err := h.authorizeRequest(r, userID, "admin"); err != nil {
-		h.writeError(w, http.StatusForbidden, "forbidden", err.Error())
+		h.writeError(w, http.StatusForbidden, "доступ запрещён", err.Error())
 		return
 	}
 
 	profile, err := h.getProfile.Execute(r.Context(), userID)
 	if err != nil {
-		if errors.Is(err, errUserNotFound) || err.Error() == "user profile not found" {
-			h.writeError(w, http.StatusNotFound, "user not found", err.Error())
+		if errors.Is(err, errUserNotFound) || err.Error() == "пользователь не найден" {
+			h.writeError(w, http.StatusNotFound, "пользователь не найден", err.Error())
 			return
 		}
 		h.logger.ErrorContext(r.Context(), "GetProfile failed", slog.String("error", err.Error()))
-		h.writeError(w, http.StatusInternalServerError, "internal error", "failed to get profile")
+		h.writeError(w, http.StatusInternalServerError, "внутренняя ошибка", "не удалось получить профиль")
 		return
 	}
 
@@ -80,32 +81,32 @@ func (h *UserHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	userID, err := getUserIDFromURL(r)
 	if err != nil {
-		h.writeError(w, http.StatusBadRequest, "invalid user id", err.Error())
+		h.writeError(w, http.StatusBadRequest, "недействительный ID пользователя", err.Error())
 		return
 	}
 
 	// Authorization check: X-User-Id must match {id} or user must be admin
 	if err := h.authorizeRequest(r, userID, "admin"); err != nil {
-		h.writeError(w, http.StatusForbidden, "forbidden", err.Error())
+		h.writeError(w, http.StatusForbidden, "доступ запрещён", err.Error())
 		return
 	}
 
 	var req UpdateProfileRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.writeError(w, http.StatusBadRequest, "invalid request body", err.Error())
+		h.writeError(w, http.StatusBadRequest, "некорректное тело запроса", err.Error())
 		return
 	}
 	defer r.Body.Close()
 
-	if err := h.validator.Struct(req); err != nil {
-		h.writeError(w, http.StatusUnprocessableEntity, "validation error", err.Error())
+	if verrs := pkg.ValidateStruct(req); verrs != nil {
+		pkg.WriteValidationErrors(w, verrs)
 		return
 	}
 
 	profile, err := h.updateProfile.Execute(r.Context(), userID, req.ToDomain())
 	if err != nil {
 		h.logger.ErrorContext(r.Context(), "UpdateProfile failed", slog.String("error", err.Error()))
-		h.writeError(w, http.StatusInternalServerError, "internal error", "failed to update profile")
+		h.writeError(w, http.StatusInternalServerError, "внутренняя ошибка", "не удалось обновить профиль")
 		return
 	}
 
@@ -116,7 +117,7 @@ func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 func (h *UserHandler) GetMasterProfile(w http.ResponseWriter, r *http.Request) {
 	userID, err := getUserIDFromURL(r)
 	if err != nil {
-		h.writeError(w, http.StatusBadRequest, "invalid user id", err.Error())
+		h.writeError(w, http.StatusBadRequest, "недействительный ID пользователя", err.Error())
 		return
 	}
 
@@ -124,22 +125,22 @@ func (h *UserHandler) GetMasterProfile(w http.ResponseWriter, r *http.Request) {
 	// but we verify the X-User-Id header is present and valid
 	callerIDStr := r.Header.Get("X-User-Id")
 	if callerIDStr == "" {
-		h.writeError(w, http.StatusForbidden, "forbidden", "missing X-User-Id header")
+		h.writeError(w, http.StatusForbidden, "доступ запрещён", "отсутствует заголовок X-User-Id")
 		return
 	}
 	if _, err := uuid.Parse(callerIDStr); err != nil {
-		h.writeError(w, http.StatusForbidden, "forbidden", "invalid X-User-Id header")
+		h.writeError(w, http.StatusForbidden, "доступ запрещён", "недействительный заголовок X-User-Id")
 		return
 	}
 
 	masterProfile, err := h.getMasterProfile.Execute(r.Context(), userID)
 	if err != nil {
-		if err.Error() == "master profile not found" {
-			h.writeError(w, http.StatusNotFound, "master profile not found", err.Error())
+		if err.Error() == "профиль мастера не найден" {
+			h.writeError(w, http.StatusNotFound, "профиль мастера не найден", err.Error())
 			return
 		}
 		h.logger.ErrorContext(r.Context(), "GetMasterProfile failed", slog.String("error", err.Error()))
-		h.writeError(w, http.StatusInternalServerError, "internal error", "failed to get master profile")
+		h.writeError(w, http.StatusInternalServerError, "внутренняя ошибка", "не удалось получить профиль мастера")
 		return
 	}
 
@@ -150,32 +151,32 @@ func (h *UserHandler) GetMasterProfile(w http.ResponseWriter, r *http.Request) {
 func (h *UserHandler) UpdateMasterProfile(w http.ResponseWriter, r *http.Request) {
 	userID, err := getUserIDFromURL(r)
 	if err != nil {
-		h.writeError(w, http.StatusBadRequest, "invalid user id", err.Error())
+		h.writeError(w, http.StatusBadRequest, "недействительный ID пользователя", err.Error())
 		return
 	}
 
 	// Authorization check
 	if err := h.authorizeRequest(r, userID, "admin"); err != nil {
-		h.writeError(w, http.StatusForbidden, "forbidden", err.Error())
+		h.writeError(w, http.StatusForbidden, "доступ запрещён", err.Error())
 		return
 	}
 
 	var req UpdateMasterProfileRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.writeError(w, http.StatusBadRequest, "invalid request body", err.Error())
+		h.writeError(w, http.StatusBadRequest, "некорректное тело запроса", err.Error())
 		return
 	}
 	defer r.Body.Close()
 
-	if err := h.validator.Struct(req); err != nil {
-		h.writeError(w, http.StatusUnprocessableEntity, "validation error", err.Error())
+	if verrs := pkg.ValidateStruct(req); verrs != nil {
+		pkg.WriteValidationErrors(w, verrs)
 		return
 	}
 
 	masterProfile, err := h.updateMasterProfile.Execute(r.Context(), userID, req.ToDomain())
 	if err != nil {
 		h.logger.ErrorContext(r.Context(), "UpdateMasterProfile failed", slog.String("error", err.Error()))
-		h.writeError(w, http.StatusInternalServerError, "internal error", "failed to update master profile")
+		h.writeError(w, http.StatusInternalServerError, "внутренняя ошибка", "failed to update master profile")
 		return
 	}
 
@@ -186,24 +187,24 @@ func (h *UserHandler) UpdateMasterProfile(w http.ResponseWriter, r *http.Request
 func (h *UserHandler) EnableMasterRole(w http.ResponseWriter, r *http.Request) {
 	userID, err := getUserIDFromURL(r)
 	if err != nil {
-		h.writeError(w, http.StatusBadRequest, "invalid user id", err.Error())
+		h.writeError(w, http.StatusBadRequest, "недействительный ID пользователя", err.Error())
 		return
 	}
 
 	// Authorization check
 	if err := h.authorizeRequest(r, userID, "admin"); err != nil {
-		h.writeError(w, http.StatusForbidden, "forbidden", err.Error())
+		h.writeError(w, http.StatusForbidden, "доступ запрещён", err.Error())
 		return
 	}
 
 	masterProfile, err := h.switchRole.EnableMasterRole(r.Context(), userID)
 	if err != nil {
-		if err.Error() == "user profile not found" {
-			h.writeError(w, http.StatusNotFound, "user not found", err.Error())
+		if err.Error() == "пользователь не найден" {
+			h.writeError(w, http.StatusNotFound, "пользователь не найден", err.Error())
 			return
 		}
 		h.logger.ErrorContext(r.Context(), "EnableMasterRole failed", slog.String("error", err.Error()))
-		h.writeError(w, http.StatusInternalServerError, "internal error", "failed to enable master role")
+		h.writeError(w, http.StatusInternalServerError, "внутренняя ошибка", "failed to enable master role")
 		return
 	}
 
@@ -214,24 +215,24 @@ func (h *UserHandler) EnableMasterRole(w http.ResponseWriter, r *http.Request) {
 func (h *UserHandler) DisableMasterRole(w http.ResponseWriter, r *http.Request) {
 	userID, err := getUserIDFromURL(r)
 	if err != nil {
-		h.writeError(w, http.StatusBadRequest, "invalid user id", err.Error())
+		h.writeError(w, http.StatusBadRequest, "недействительный ID пользователя", err.Error())
 		return
 	}
 
 	// Authorization check
 	if err := h.authorizeRequest(r, userID, "admin"); err != nil {
-		h.writeError(w, http.StatusForbidden, "forbidden", err.Error())
+		h.writeError(w, http.StatusForbidden, "доступ запрещён", err.Error())
 		return
 	}
 
 	if err := h.switchRole.DisableMasterRole(r.Context(), userID); err != nil {
 		h.logger.ErrorContext(r.Context(), "DisableMasterRole failed", slog.String("error", err.Error()))
-		h.writeError(w, http.StatusInternalServerError, "internal error", "failed to disable master role")
+		h.writeError(w, http.StatusInternalServerError, "внутренняя ошибка", "failed to disable master role")
 		return
 	}
 
 	h.writeJSON(w, http.StatusOK, map[string]string{
-		"message": "master role disabled",
+		"message": "роль мастера отключена",
 	})
 }
 
@@ -248,7 +249,7 @@ func (h *UserHandler) Health(w http.ResponseWriter, r *http.Request) {
 func (h *UserHandler) authorizeRequest(r *http.Request, targetUserID uuid.UUID, bypassRole string) error {
 	callerIDStr := r.Header.Get("X-User-Id")
 	if callerIDStr == "" {
-		return fmt.Errorf("missing X-User-Id header")
+		return fmt.Errorf("отсутствует заголовок X-User-Id")
 	}
 
 	callerID, err := uuid.Parse(callerIDStr)
@@ -283,7 +284,7 @@ func (h *UserHandler) authorizeRequest(r *http.Request, targetUserID uuid.UUID, 
 
 // --- Helpers ---
 
-var errUserNotFound = errors.New("user not found")
+var errUserNotFound = errors.New("пользователь не найден")
 
 func getUserIDFromURL(r *http.Request) (uuid.UUID, error) {
 	idStr := chi.URLParam(r, "id")
