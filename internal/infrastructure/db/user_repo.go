@@ -94,7 +94,10 @@ func (r *UserProfileRepo) Update(ctx context.Context, profile *domain.UserProfil
 		return fmt.Errorf("failed to update user profile: %w", err)
 	}
 
-	rows, _ := result.RowsAffected()
+	rows, err := result.RowsAffected()
+	if err != nil {
+		r.logger.WarnContext(ctx, "failed to get rows affected", slog.String("error", err.Error()))
+	}
 	if rows == 0 {
 		return fmt.Errorf("user profile not found for update")
 	}
@@ -177,7 +180,10 @@ func (r *MasterProfileRepo) Update(ctx context.Context, mp *domain.MasterProfile
 		return fmt.Errorf("failed to update master profile: %w", err)
 	}
 
-	rows, _ := result.RowsAffected()
+	rows, err := result.RowsAffected()
+	if err != nil {
+		r.logger.WarnContext(ctx, "failed to get rows affected", slog.String("error", err.Error()))
+	}
 	if rows == 0 {
 		return fmt.Errorf("master profile not found for update")
 	}
@@ -216,7 +222,10 @@ func (r *MasterProfileRepo) UpdateRating(ctx context.Context, userID uuid.UUID, 
 		return fmt.Errorf("failed to update master rating: %w", err)
 	}
 
-	rows, _ := result.RowsAffected()
+	rows, err := result.RowsAffected()
+	if err != nil {
+		r.logger.WarnContext(ctx, "failed to get rows affected", slog.String("error", err.Error()))
+	}
 	if rows == 0 {
 		return fmt.Errorf("master profile not found for rating update")
 	}
@@ -239,7 +248,10 @@ func (r *MasterProfileRepo) IncrementCompletedOrders(ctx context.Context, userID
 		return fmt.Errorf("failed to increment completed orders: %w", err)
 	}
 
-	rows, _ := result.RowsAffected()
+	rows, err := result.RowsAffected()
+	if err != nil {
+		r.logger.WarnContext(ctx, "failed to get rows affected", slog.String("error", err.Error()))
+	}
 	if rows == 0 {
 		return fmt.Errorf("master profile not found for order increment")
 	}
@@ -306,7 +318,10 @@ func (r *UserRoleRepo) RemoveRole(ctx context.Context, userID uuid.UUID, role st
 		return fmt.Errorf("failed to remove role: %w", err)
 	}
 
-	rows, _ := result.RowsAffected()
+	rows, err := result.RowsAffected()
+	if err != nil {
+		r.logger.WarnContext(ctx, "failed to get rows affected", slog.String("error", err.Error()))
+	}
 	if rows == 0 {
 		r.logger.WarnContext(ctx, "role not found for removal",
 			slog.String("user_id", userID.String()),

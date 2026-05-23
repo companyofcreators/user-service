@@ -14,6 +14,7 @@ import (
 	"github.com/companyofcreators/user-service/internal/infrastructure/db"
 	httphandler "github.com/companyofcreators/user-service/internal/interfaces/http"
 	"github.com/companyofcreators/user-service/internal/pkg"
+	"github.com/companyofcreators/user-service/pkg/header_auth"
 )
 
 func main() {
@@ -45,7 +46,7 @@ func main() {
 
 	// Build dependency container
 	kafkaBrokers := cfg.KafkaBrokersList()
-	container := app.NewContainer(database, logger, kafkaBrokers, cfg.OrderServiceURL)
+	container := app.NewContainer(database, logger, kafkaBrokers, cfg.OrderServiceURL, cfg.AuthServiceURL)
 
 	// Create HTTP handler and router
 	handler := httphandler.NewUserHandler(
@@ -58,7 +59,8 @@ func main() {
 		logger,
 	)
 
-	router := httphandler.NewRouter(handler)
+	headerSigner := header_auth.NewHeaderSigner(cfg.HeaderHMACKey)
+	router := httphandler.NewRouter(handler, headerSigner)
 
 	// Start Kafka consumers in goroutines
 	ctx, cancel := context.WithCancel(context.Background())

@@ -77,8 +77,13 @@ func tagToRussian(e validator.FieldError) string {
 }
 
 func WriteValidationErrors(w http.ResponseWriter, verrs ValidationErrors) {
+	resp := map[string]any{"errors": verrs}
+	data, err := json.Marshal(resp)
+	if err != nil {
+		http.Error(w, "failed to encode validation errors", http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusUnprocessableEntity)
-	resp := map[string]any{"errors": verrs}
-	json.NewEncoder(w).Encode(resp)
+	w.Write(data)
 }

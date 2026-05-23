@@ -17,12 +17,20 @@ type OrderChecker interface {
 	HasActiveOrders(ctx context.Context, userID string) (bool, error)
 }
 
+// RoleSyncer is an interface for syncing roles to the auth-service.
+// Implemented by app.AuthClient (in package app) to avoid circular imports.
+type RoleSyncer interface {
+	AddRole(ctx context.Context, userID, role string) error
+	RemoveRole(ctx context.Context, userID, role string) error
+}
+
 // SwitchRoleUseCase handles enabling or disabling the master role for a user.
 type SwitchRoleUseCase struct {
 	userRepo     domain.UserProfileRepository
 	masterRepo   domain.MasterProfileRepository
 	roleRepo     domain.UserRoleRepository
 	orderChecker OrderChecker
+	roleSyncer   RoleSyncer
 	logger       *slog.Logger
 }
 
@@ -31,6 +39,7 @@ func NewSwitchRoleUseCase(
 	masterRepo domain.MasterProfileRepository,
 	roleRepo domain.UserRoleRepository,
 	orderChecker OrderChecker,
+	roleSyncer RoleSyncer,
 	logger *slog.Logger,
 ) *SwitchRoleUseCase {
 	return &SwitchRoleUseCase{
@@ -38,6 +47,7 @@ func NewSwitchRoleUseCase(
 		masterRepo:   masterRepo,
 		roleRepo:     roleRepo,
 		orderChecker: orderChecker,
+		roleSyncer:   roleSyncer,
 		logger:       logger,
 	}
 }
@@ -48,10 +58,11 @@ func (u *SwitchRoleUseCase) EnableMasterRole(ctx context.Context, userID uuid.UU
 	if u.orderChecker != nil {
 		hasActive, err := u.orderChecker.HasActiveOrders(ctx, userID.String())
 		if err != nil {
-			u.logger.WarnContext(ctx, "failed to check active orders before enabling master role, proceeding anyway",
+			u.logger.ErrorContext(ctx, "failed to check active orders, blocking role switch",
 				slog.String("user_id", userID.String()),
 				slog.String("error", err.Error()),
 			)
+			return nil, fmt.Errorf("не удалось проверить активные заказы, попробуйте позже")
 		} else if hasActive {
 			return nil, fmt.Errorf("нельзя включить роль мастера при наличии активных заказов как заказчик")
 		}
@@ -116,6 +127,16 @@ func (u *SwitchRoleUseCase) EnableMasterRole(ctx context.Context, userID uuid.UU
 		}
 	}
 
+	// Sync role to auth-service so JWT tokens include it on next login.
+	if u.roleSyncer != nil {
+		if err := u.roleSyncer.AddRole(ctx, userID.String(), "master"); err != nil {
+			u.logger.WarnContext(ctx, "failed to sync master role to auth-service, will retry on next role change",
+				slog.String("user_id", userID.String()),
+				slog.String("error", err.Error()),
+			)
+		}
+	}
+
 	u.logger.InfoContext(ctx, "master role enabled",
 		slog.String("user_id", userID.String()),
 	)
@@ -129,10 +150,11 @@ func (u *SwitchRoleUseCase) DisableMasterRole(ctx context.Context, userID uuid.U
 	if u.orderChecker != nil {
 		hasActive, err := u.orderChecker.HasActiveOrders(ctx, userID.String())
 		if err != nil {
-			u.logger.WarnContext(ctx, "failed to check active orders before disabling master role, proceeding anyway",
+			u.logger.ErrorContext(ctx, "failed to check active orders, blocking role switch",
 				slog.String("user_id", userID.String()),
 				slog.String("error", err.Error()),
 			)
+			return fmt.Errorf("не удалось проверить активные заказы, попробуйте позже")
 		} else if hasActive {
 			return fmt.Errorf("нельзя отключить роль мастера при наличии активных заказов в работе")
 		}
@@ -166,6 +188,16 @@ func (u *SwitchRoleUseCase) DisableMasterRole(ctx context.Context, userID uuid.U
 				slog.String("error", err.Error()),
 			)
 			return fmt.Errorf("failed to deactivate master profile: %w", err)
+		}
+	}
+
+	// Sync role removal to auth-service so JWT tokens reflect it on next login.
+	if u.roleSyncer != nil {
+		if err := u.roleSyncer.RemoveRole(ctx, userID.String(), "master"); err != nil {
+			u.logger.WarnContext(ctx, "failed to sync master role removal to auth-service",
+				slog.String("user_id", userID.String()),
+				slog.String("error", err.Error()),
+			)
 		}
 	}
 

@@ -33,9 +33,35 @@ type listOrdersResponse struct {
 // HasActiveOrders checks if a user has any active orders (as customer or master).
 // Active statuses: created, negotiation, assigned, in_progress.
 // It calls the order-service internal endpoint: GET /internal/orders?user_id={id}&active=true
+// Retries up to 3 times with exponential backoff (1s, 2s, 4s) on failure.
 func (c *OrderClient) HasActiveOrders(ctx context.Context, userID string) (bool, error) {
 	url := fmt.Sprintf("%s/internal/orders?user_id=%s&active=true&limit=1", c.baseURL, userID)
 
+	var lastErr error
+	backoff := []time.Duration{1 * time.Second, 2 * time.Second, 4 * time.Second}
+
+	for attempt := 0; attempt <= len(backoff); attempt++ {
+		if attempt > 0 {
+			select {
+			case <-ctx.Done():
+				return false, fmt.Errorf("context cancelled during retry: %w", ctx.Err())
+			case <-time.After(backoff[attempt-1]):
+			}
+		}
+
+		result, err := c.doHasActiveOrders(ctx, url)
+		if err == nil {
+			return result, nil
+		}
+
+		lastErr = err
+	}
+
+	return false, fmt.Errorf("order-service request failed after %d retries: %w", len(backoff), lastErr)
+}
+
+// doHasActiveOrders performs a single HasActiveOrders HTTP call.
+func (c *OrderClient) doHasActiveOrders(ctx context.Context, url string) (bool, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return false, fmt.Errorf("create request: %w", err)

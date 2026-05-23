@@ -33,7 +33,7 @@ type Container struct {
 }
 
 // NewContainer creates and wires all dependencies.
-func NewContainer(database *sqlx.DB, logger *slog.Logger, kafkaBrokers []string, orderServiceURL string) *Container {
+func NewContainer(database *sqlx.DB, logger *slog.Logger, kafkaBrokers []string, orderServiceURL, authServiceURL string) *Container {
 	c := &Container{
 		DB:     database,
 		Logger: logger,
@@ -46,6 +46,7 @@ func NewContainer(database *sqlx.DB, logger *slog.Logger, kafkaBrokers []string,
 
 	// Clients
 	orderClient := NewOrderClient(orderServiceURL)
+	authClient := NewAuthClient(authServiceURL)
 
 	// Use cases
 	c.GetProfileUseCase = appuser.NewGetProfileUseCase(
@@ -71,6 +72,7 @@ func NewContainer(database *sqlx.DB, logger *slog.Logger, kafkaBrokers []string,
 		c.MasterProfileRepo,
 		c.UserRoleRepo,
 		orderClient,
+		authClient,
 		logger,
 	)
 
