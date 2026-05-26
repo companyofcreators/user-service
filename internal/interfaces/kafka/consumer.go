@@ -23,10 +23,12 @@ type UserCreatedEvent struct {
 
 // ReviewCreatedEvent is the message received when a review is submitted.
 type ReviewCreatedEvent struct {
-	ReviewID  string  `json:"review_id"`
-	MasterID  string  `json:"master_id"`
-	Rating    float64 `json:"rating"`
-	OrderID   string  `json:"order_id"`
+	ReviewID       string  `json:"review_id"`
+	MasterID       string  `json:"master_id"`
+	ReviewedUserID string  `json:"reviewed_user_id"`
+	ToUserID       string  `json:"to_user_id"`
+	Rating         float64 `json:"rating"`
+	OrderID        string  `json:"order_id"`
 }
 
 // KafkaConsumer manages Kafka topic consumption for the user-service.
@@ -226,6 +228,12 @@ func (c *KafkaConsumer) consumeReviewCreated(ctx context.Context) {
 			continue
 		}
 
+		if event.MasterID == "" {
+			event.MasterID = event.ReviewedUserID
+		}
+		if event.MasterID == "" {
+			event.MasterID = event.ToUserID
+		}
 		masterID, err := uuid.Parse(event.MasterID)
 		if err != nil {
 			c.logger.Error("invalid master_id in review.created event",
