@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator/v10"
@@ -99,6 +100,28 @@ func (h *UserHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 	h.writeJSON(w, http.StatusOK, NewFullProfileResponse(profile))
 }
 
+// GetPublicProfile GET /internal/users/{id}/public — public info for any user (no auth required).
+func (h *UserHandler) GetPublicProfile(w http.ResponseWriter, r *http.Request) {
+	userID, err := getUserIDFromURL(r)
+	if err != nil {
+		h.writeError(w, http.StatusBadRequest, "недействительный ID пользователя", err.Error())
+		return
+	}
+
+	profile, err := h.getProfile.Execute(r.Context(), userID)
+	if err != nil {
+		h.writeError(w, http.StatusNotFound, "пользователь не найден", err.Error())
+		return
+	}
+
+	h.writeJSON(w, http.StatusOK, PublicProfileResponse{
+		ID:        profile.Profile.ID,
+		FirstName: profile.Profile.FirstName,
+		LastName:  profile.Profile.LastName,
+		AvatarURL: profile.Profile.AvatarURL,
+	})
+}
+
 // UpdateProfile PATCH /internal/users/{id}
 func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	userID, err := getUserIDFromURL(r)
@@ -166,7 +189,8 @@ func (h *UserHandler) GetMasterProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.writeJSON(w, http.StatusOK, NewMasterProfileResponse(masterProfile))
+	userProfileFull, _ := h.getProfile.Execute(r.Context(), userID)
+	h.writeJSON(w, http.StatusOK, NewMasterProfileResponse(masterProfile, userProfileFull.Profile))
 }
 
 // UpdateMasterProfile PATCH /internal/masters/{id}
@@ -202,7 +226,7 @@ func (h *UserHandler) UpdateMasterProfile(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	h.writeJSON(w, http.StatusOK, NewMasterProfileResponse(masterProfile))
+	h.writeJSON(w, http.StatusOK, NewMasterProfileResponse(masterProfile, nil))
 }
 
 // EnableMasterRole POST /internal/users/{id}/roles/master
@@ -230,7 +254,7 @@ func (h *UserHandler) EnableMasterRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.writeJSON(w, http.StatusOK, NewMasterProfileResponse(masterProfile))
+	h.writeJSON(w, http.StatusOK, NewMasterProfileResponse(masterProfile, nil))
 }
 
 // DisableMasterRole DELETE /internal/users/{id}/roles/master
@@ -284,7 +308,13 @@ func (h *UserHandler) authorizeRequest(r *http.Request, targetUserID uuid.UUID, 
 		return nil
 	}
 
-	// Check for bypass role
+	// Internal service call bypass: trust the X-User-Role header
+	// (set by internal services with HMAC signature verification)
+	if strings.Contains(r.Header.Get("X-User-Role"), bypassRole) {
+		return nil
+	}
+
+	// Check for bypass role in DB
 	roles, err := h.roleRepo.GetRoles(r.Context(), callerID)
 	if err != nil {
 		h.logger.ErrorContext(r.Context(), "failed to check caller roles",

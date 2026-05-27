@@ -10,8 +10,9 @@ import (
 // This is NOT for authentication - it only stores public-facing information.
 type UserProfile struct {
 	ID        uuid.UUID  `json:"id" db:"id"`
-	FirstName string     `json:"first_name" db:"first_name"`
-	LastName  string     `json:"last_name" db:"last_name"`
+	FirstName  string     `json:"first_name" db:"first_name"`
+	LastName   string     `json:"last_name" db:"last_name"`
+	Patronymic string     `json:"patronymic,omitempty" db:"patronymic"`
 	AvatarURL string     `json:"avatar_url" db:"avatar_url"`
 	Phone     string     `json:"phone" db:"phone"`
 	Birthdate *time.Time `json:"birthdate" db:"birthdate"`

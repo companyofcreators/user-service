@@ -21,7 +21,8 @@ type UserService interface {
 type UpdateProfileInput struct {
 	FirstName *string    `json:"first_name,omitempty" validate:"omitempty,min=1,max=100"`
 	LastName  *string    `json:"last_name,omitempty" validate:"omitempty,min=1,max=100"`
-	AvatarURL *string    `json:"avatar_url,omitempty" validate:"omitempty,url"`
+	Patronymic *string    `json:"patronymic,omitempty" validate:"omitempty,max=100"`
+	AvatarURL *string    `json:"avatar_url,omitempty" `
 	Phone     *string    `json:"phone,omitempty" validate:"omitempty,min=5,max=20"`
 	Birthdate *string    `json:"birthdate,omitempty" validate:"omitempty,datetime=2006-01-02"`
 }

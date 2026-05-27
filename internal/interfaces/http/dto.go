@@ -13,17 +13,19 @@ import (
 // UpdateProfileRequest represents the PATCH body for updating a user profile.
 type UpdateProfileRequest struct {
 	FirstName *string `json:"first_name,omitempty" validate:"omitempty,min=1,max=100"`
-	LastName  *string `json:"last_name,omitempty" validate:"omitempty,min=1,max=100"`
-	AvatarURL *string `json:"avatar_url,omitempty" validate:"omitempty,url"`
+	LastName   *string `json:"last_name,omitempty" validate:"omitempty,min=1,max=100"`
+	Patronymic *string `json:"patronymic,omitempty" validate:"omitempty,max=100"`
+	AvatarURL  *string `json:"avatar_url,omitempty" `
 	Phone     *string `json:"phone,omitempty" validate:"omitempty,min=5,max=20"`
 	Birthdate *string `json:"birthdate,omitempty" validate:"omitempty,datetime=2006-01-02"`
 }
 
 func (r UpdateProfileRequest) ToDomain() domain.UpdateProfileInput {
 	return domain.UpdateProfileInput{
-		FirstName: r.FirstName,
-		LastName:  r.LastName,
-		AvatarURL: r.AvatarURL,
+		FirstName:  r.FirstName,
+		LastName:   r.LastName,
+		Patronymic: r.Patronymic,
+		AvatarURL:  r.AvatarURL,
 		Phone:     r.Phone,
 		Birthdate: r.Birthdate,
 	}
@@ -51,12 +53,21 @@ type ErrorResponse struct {
 	Details string `json:"details,omitempty"`
 }
 
+// PublicProfileResponse is the JSON response for a public user profile.
+type PublicProfileResponse struct {
+	ID        uuid.UUID `json:"id"`
+	FirstName string    `json:"first_name"`
+	LastName  string    `json:"last_name"`
+	AvatarURL string    `json:"avatar_url"`
+}
+
 // UserProfileResponse is the JSON response for a user profile.
 type UserProfileResponse struct {
 	ID        uuid.UUID  `json:"id"`
-	FirstName string     `json:"first_name"`
-	LastName  string     `json:"last_name"`
-	AvatarURL string     `json:"avatar_url"`
+	FirstName  string     `json:"first_name"`
+	LastName   string     `json:"last_name"`
+	Patronymic string     `json:"patronymic,omitempty"`
+	AvatarURL  string     `json:"avatar_url"`
 	Phone     string     `json:"phone"`
 	Birthdate *time.Time `json:"birthdate,omitempty"`
 	UpdatedAt time.Time  `json:"updated_at"`
@@ -65,9 +76,10 @@ type UserProfileResponse struct {
 func NewUserProfileResponse(p *domain.UserProfile) UserProfileResponse {
 	return UserProfileResponse{
 		ID:        p.ID,
-		FirstName: p.FirstName,
-		LastName:  p.LastName,
-		AvatarURL: p.AvatarURL,
+		FirstName:  p.FirstName,
+		LastName:   p.LastName,
+		Patronymic: p.Patronymic,
+		AvatarURL:  p.AvatarURL,
 		Phone:     p.Phone,
 		Birthdate: p.Birthdate,
 		UpdatedAt: p.UpdatedAt,
@@ -77,6 +89,9 @@ func NewUserProfileResponse(p *domain.UserProfile) UserProfileResponse {
 // MasterProfileResponse is the JSON response for a master profile.
 type MasterProfileResponse struct {
 	UserID          uuid.UUID `json:"user_id"`
+	FirstName       string    `json:"first_name"`
+	LastName        string    `json:"last_name"`
+	AvatarURL       string    `json:"avatar_url"`
 	IsActive        bool      `json:"is_active"`
 	Description     string    `json:"description"`
 	ExperienceYears int       `json:"experience_years"`
@@ -85,8 +100,8 @@ type MasterProfileResponse struct {
 	UpdatedAt       time.Time `json:"updated_at"`
 }
 
-func NewMasterProfileResponse(mp *domain.MasterProfile) MasterProfileResponse {
-	return MasterProfileResponse{
+func NewMasterProfileResponse(mp *domain.MasterProfile, up *domain.UserProfile) MasterProfileResponse {
+	resp := MasterProfileResponse{
 		UserID:          mp.UserID,
 		IsActive:        mp.IsActive,
 		Description:     mp.Description,
@@ -95,6 +110,12 @@ func NewMasterProfileResponse(mp *domain.MasterProfile) MasterProfileResponse {
 		CompletedOrders: mp.CompletedOrders,
 		UpdatedAt:       mp.UpdatedAt,
 	}
+	if up != nil {
+		resp.FirstName = up.FirstName
+		resp.LastName = up.LastName
+		resp.AvatarURL = up.AvatarURL
+	}
+	return resp
 }
 
 // FullProfileResponse is the JSON response for a full user profile.
@@ -113,7 +134,7 @@ func NewFullProfileResponse(fp *domain.FullProfile) FullProfileResponse {
 		resp.Profile = &pr
 	}
 	if fp.MasterProfile != nil {
-		mpr := NewMasterProfileResponse(fp.MasterProfile)
+		mpr := NewMasterProfileResponse(fp.MasterProfile, fp.Profile)
 		resp.MasterProfile = &mpr
 	}
 	return resp

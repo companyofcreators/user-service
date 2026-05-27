@@ -57,6 +57,9 @@ func (u *UpdateProfileUseCase) Execute(ctx context.Context, userID uuid.UUID, in
 	if input.LastName != nil {
 		existing.LastName = *input.LastName
 	}
+	if input.Patronymic != nil {
+		existing.Patronymic = *input.Patronymic
+	}
 	if input.AvatarURL != nil {
 		existing.AvatarURL = *input.AvatarURL
 	}

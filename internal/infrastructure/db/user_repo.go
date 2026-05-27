@@ -32,14 +32,14 @@ func NewUserProfileRepo(db *sqlx.DB, logger *slog.Logger) *UserProfileRepo {
 
 func (r *UserProfileRepo) Create(ctx context.Context, profile *domain.UserProfile) error {
 	query := `
-		INSERT INTO user_profiles (id, first_name, last_name, avatar_url, phone, birthdate, updated_at)
+		INSERT INTO user_profiles (id, first_name, last_name, patronymic, avatar_url, phone, birthdate, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`
 	_, err := r.db.ExecContext(ctx, query,
 		profile.ID,
 		profile.FirstName,
 		profile.LastName,
-		profile.AvatarURL,
+		profile.Patronymic, profile.AvatarURL,
 		profile.Phone,
 		profile.Birthdate,
 		profile.UpdatedAt,
@@ -56,7 +56,7 @@ func (r *UserProfileRepo) Create(ctx context.Context, profile *domain.UserProfil
 
 func (r *UserProfileRepo) FindByID(ctx context.Context, id uuid.UUID) (*domain.UserProfile, error) {
 	query := `
-		SELECT id, first_name, last_name, avatar_url, phone, birthdate, updated_at
+		SELECT id, first_name, last_name, patronymic, avatar_url, phone, birthdate, updated_at
 		FROM user_profiles
 		WHERE id = $1
 	`
@@ -74,13 +74,14 @@ func (r *UserProfileRepo) FindByID(ctx context.Context, id uuid.UUID) (*domain.U
 func (r *UserProfileRepo) Update(ctx context.Context, profile *domain.UserProfile) error {
 	query := `
 		UPDATE user_profiles
-		SET first_name = $2, last_name = $3, avatar_url = $4, phone = $5, birthdate = $6, updated_at = $7
+		SET first_name = $2, last_name = $3, patronymic = $4, avatar_url = $5, phone = $6, birthdate = $7, updated_at = $8
 		WHERE id = $1
 	`
 	result, err := r.db.ExecContext(ctx, query,
 		profile.ID,
 		profile.FirstName,
 		profile.LastName,
+		profile.Patronymic,
 		profile.AvatarURL,
 		profile.Phone,
 		profile.Birthdate,

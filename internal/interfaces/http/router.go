@@ -27,6 +27,7 @@ func NewRouter(handler *UserHandler, signer *header_auth.HeaderSigner) *chi.Mux 
 
 	// User profile routes
 	r.Route("/internal/users/{id}", func(r chi.Router) {
+		r.Get("/public", handler.GetPublicProfile)
 		r.Get("/", handler.GetProfile)
 		r.Patch("/", handler.UpdateProfile)
 
